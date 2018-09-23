@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 using namespace std;
 
 //Rijndael S-Box [ used in SubBytes ]
@@ -23,7 +24,6 @@ unsigned char s_box[256] =
  };
 
 //Rijndael Mix Columns -- LookUpTables
-
 unsigned char mul2[]
 {
 	0x00,0x02,0x04,0x06,0x08,0x0a,0x0c,0x0e,0x10,0x12,0x14,0x16,0x18,0x1a,0x1c,0x1e,
@@ -64,13 +64,87 @@ unsigned char mul3[]
 	0x0b,0x08,0x0d,0x0e,0x07,0x04,0x01,0x02,0x13,0x10,0x15,0x16,0x1f,0x1c,0x19,0x1a
 };
 
+//rcon lookup table
+unsigned char rcon[256] = {
+    0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
+    0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 
+    0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 
+    0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 
+    0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 
+    0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 
+    0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 
+    0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 
+    0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 
+    0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 
+    0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 
+    0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 
+    0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 
+    0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 0x63, 
+    0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 0x72, 0xe4, 0xd3, 0xbd, 
+    0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb, 0x8d
+};
 
-void KeyExpansion(){}
+
+//cores of KeyExpansionn
+void KeyExpansionCore(unsigned char* in, unsigned char i)
+{
+    //Rotate left
+    unsigned int* q = (unsigned int*)in;
+    *q = (*q >> 8) | ((*q & 0xff) << 24);
+
+    //S-Box [Four bytes]
+    in[0] = s_box[in[0]]; in[1] = s_box[in[1]];
+    in[2] = s_box[in[2]]; in[3] = s_box[in[3]];
+
+    //RCON (Value of in[0] XOR with "RCON" lookup table)
+    in[0] ^= rcon[i];
+
+}
+
+//copy 128 bit key to the first 16 bytes of the expanded key
+void KeyExpansion(unsigned char* inputKey, unsigned char* expandedKeys)
+{
+    //the first 16 bytes of the original key
+    for(int i=0; i<16; i++)
+    {
+        expandedKeys[i] = inputKey[i]; //inputKey is original key
+    }
+
+    //variables
+    int bytesGenerated = 16; //We've Generated 16 Bytes so far
+    int rconIteration = 1; //RCON Iteration began at 1
+    unsigned char tmp[4]; //Tempory Storage CORE
+
+    while(bytesGenerated < 176)
+    {
+         //read 4 bytes of the core (Read Previously generated 4 bytes and store it inside tmp)
+         for(int i=0; i<4; i++)
+         {
+             tmp[i] = expandedKeys[i + bytesGenerated - 4];
+         }
+
+         //perform the core for each 16 byte key:
+         if(bytesGenerated%16 == 0)
+         {
+             KeyExpansionCore(tmp,rconIteration++);
+         }
+
+         //XOR temp with [byteGenerated-16], and store in expandedKeys
+         for(unsigned char a=0; a<4; a++)
+         {
+             expandedKeys[bytesGenerated] = expandedKeys[bytesGenerated-16] ^ tmp[a];
+             bytesGenerated++;
+         } 
+    } 
+}
 
 //initial Round is equal is AddRoundKey --- Same Senario happen there
 void InitialRound(unsigned char* state, unsigned char* AddRoundKey)
 {
-
+    for(int i=0; i<16; i++)
+    {
+        state[i] ^= AddRoundKey[i];
+    }
 }
 
 //byte subsitituion
@@ -81,7 +155,35 @@ void SubBytes(unsigned char* state)
         state[i]=s_box[state[i]];
     }
 }
-void MixColumns(){}
+void MixColumns(unsigned char* state)
+{
+
+    unsigned char tmp[16];
+
+        //dot products using Rijndael Mix Columns -- LookUpTables
+        tmp[0] = (unsigned char)(mul2[state[0]] ^ mul3[state[1]] ^ state[2] ^ state[3]); 
+        tmp[1] = (unsigned char)(state[0] ^ mul2[state[1]] ^ mul3[state[2]] ^ state[3]); 
+        tmp[2] = (unsigned char)(state[0] ^ state[1] ^ mul2[state[2]] ^ mul3[state[3]]); 
+        tmp[3] = (unsigned char)(mul3[state[0]] ^ state[1] ^ state[2] ^ mul2[state[3]]); 
+        tmp[4] = (unsigned char)(mul2[state[4]] ^ mul3[state[5]] ^ state[6] ^ state[7]); 
+        tmp[5] = (unsigned char)(state[4] ^ mul2[state[5]] ^ mul3[state[6]] ^ state[7]); 
+        tmp[6] = (unsigned char)(state[4] ^ state[5] ^ mul2[state[6]] ^ mul3[state[7]]); 
+        tmp[7] = (unsigned char)(mul3[state[4]] ^ state[5] ^ state[6] ^ mul2[state[7]]); 
+        tmp[8] = (unsigned char)(mul2[state[8]] ^ mul3[state[9]] ^ state[10] ^ state[11]); 
+        tmp[9] = (unsigned char)(state[8] ^ mul2[state[9]] ^ mul3[state[10]] ^ state[11]); 
+        tmp[10] = (unsigned char)(state[8] ^ state[9] ^ mul2[state[10]] ^ mul3[state[11]]); 
+        tmp[11] = (unsigned char)(mul3[state[8]] ^ state[9] ^ state[10] ^ mul2[state[11]]); 
+        tmp[12] = (unsigned char)(mul2[state[12]] ^ mul3[state[13]] ^ state[14] ^ state[15]);
+        tmp[13] = (unsigned char)(state[12] ^ mul2[state[13]] ^ mul3[state[14]] ^ state[15]); 
+        tmp[14] = (unsigned char)(state[12] ^ state[13] ^ mul2[state[14]] ^ mul3[state[15]]); 
+        tmp[15] = (unsigned char)(mul3[state[12]] ^ state[13] ^ state[14] ^ mul2[state[15]]);
+
+    //change the current state according to tmp
+    for(int i=0; i<16; i++)
+    {
+        state[i] = tmp[i];
+    }
+}
 
 //shifting row
 void ShiftRows(unsigned char* state)
@@ -93,7 +195,6 @@ void ShiftRows(unsigned char* state)
     tmp[2] = state[10];
     tmp[3] = state[15];
 
-    //need to edit those
     tmp[0] = state[0];
     tmp[1] = state[5];
     tmp[2] = state[10];
@@ -118,14 +219,17 @@ void ShiftRows(unsigned char* state)
 //generate and add round key
 void AddRoundKey(unsigned char* state, unsigned char* AddRoundKey)
 {
-
+    for(int i=0; i<16; i++)
+    {
+        state[i] ^= AddRoundKey[i];
+    }
 }
 
 //encryption
 void AES_encrypt(unsigned char* message, unsigned char* key)
 {
 
-    unsigned char state[16];
+    unsigned char state[16]; 
 
     //copy first 16 bytes of message to state
     for(int i=0; i<16; i++)
@@ -133,8 +237,13 @@ void AES_encrypt(unsigned char* message, unsigned char* key)
         state[i]=message[i];
     }
 
-    int NumberOfRounds=1;
-    KeyExpansion();
+    int NumberOfRounds = 9;
+
+    //expand the key (KEY EXPANSION)
+    unsigned char expandedKey[176];
+    KeyExpansion(key,expandedKey);
+
+    //initial round
     InitialRound(state,key); //whitning, Add Round
 
     //doing rounds
@@ -142,17 +251,31 @@ void AES_encrypt(unsigned char* message, unsigned char* key)
     {
         SubBytes(state);
         ShiftRows(state);
-        MixColumns();
-        AddRoundKey(state,key);
+        MixColumns(state);
+        AddRoundKey(state,expandedKey + (16 * (i+1)));
     }
 
     //finale round
     SubBytes(state);
     ShiftRows(state);
-    AddRoundKey(state,key);
+    AddRoundKey(state,expandedKey + 160);
 
-    
+    //copy over the message with the encrypted message(state)
+    for(int i=0; i<16; i++)
+    {
+        message[i]=state[i];
+    }
 
+}
+
+//function to print hexadecimal in enrypted message
+void printHex(unsigned char x)
+{
+    if(x/16<10)cout<<(char)((x/16)+'0');
+    if(x/16>=10)cout<<(char)((x/16-10)+'A');
+
+    if(x%16<10)cout<<(char)((x%16)+'0');
+    if(x%16>=10)cout<<(char)((x%16-10)+'A');
 }
 
 int main()
@@ -166,8 +289,52 @@ int main()
                                 13,14,15,16
                             };
 
-    AES_encrypt(message,key);
+    //padding original message to 16 bit
+    //getting original length of a message
+    int originalLen = strlen((const char*)message);
+    int lenOfPaddingMessage = originalLen;
 
+    //round lenOfPaddingMessage to nearest multiple of 16
+    if(lenOfPaddingMessage % 16 !=0)
+    {
+        //if Message length not 16 bit
+        lenOfPaddingMessage = (lenOfPaddingMessage / 16 + 1)*16;
+    }
+
+    unsigned char* paddedmessage = new unsigned char[lenOfPaddingMessage];
+    for(int i=0; i<lenOfPaddingMessage; i++)
+    {
+        if(i >= originalLen)
+        {
+            //if i greater that original length of the message, add zeors to the end of the message
+            paddedmessage[i]=0; 
+        }
+        else
+        {
+            paddedmessage[i]=message[i];
+        }
+    }
+
+    //encrypt the padded message
+    for(int i=0; i < lenOfPaddingMessage; i += 16)
+    {
+        AES_encrypt(paddedmessage+i,key);
+    }
+
+    //display the encrypted message
+    cout<<"\nEncrypted Message:"<<endl;
     
+    for(int i=0; i<lenOfPaddingMessage; i++)
+    {
+        printHex(paddedmessage[i]);
+        cout<<" ";
+    }
+
+    cout<<"\n";
+
+    delete[] paddedmessage;
+    
+    
+
     return 0;
 }
