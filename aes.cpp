@@ -214,6 +214,12 @@ void ShiftRows(unsigned char* state)
     tmp[1] = state[5];
     tmp[2] = state[10];
     tmp[3] = state[15];
+
+    //copy tmp values to state
+    for(int i=0; i<16; i++)
+    {
+        state[i]=tmp[i];
+    }
 }
 
 //generate and add round key
